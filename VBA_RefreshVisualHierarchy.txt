@@ -1,0 +1,378 @@
+' ============================================
+' VISUAL HIERARCHY MACRO FOR DOWNTIME CODES
+' ============================================
+' This macro creates a 4x3 grid of cards displaying Tier 1 downtime categories
+' with their subcategories and root cause counts, dynamically pulled from dimReasonCodes sheet.
+'
+' USAGE:
+' 1. Open VBA Editor (Alt+F11)
+' 2. Insert > Module
+' 3. Paste this entire code
+' 4. Close VBA Editor
+' 5. On Visual_Hierarchy sheet, insert a button (Developer > Insert > Button)
+' 6. Assign this macro: RefreshVisualHierarchy
+' 7. Click button to refresh the visual hierarchy
+'
+' AUTHOR: Claude Code
+' DATE: 2026-01-07
+' ============================================
+
+Option Explicit
+
+' Main macro to refresh the Visual Hierarchy
+Sub RefreshVisualHierarchy()
+    On Error GoTo ErrorHandler
+
+    Dim wsData As Worksheet
+    Dim wsVisual As Worksheet
+    Dim lastRow As Long
+    Dim tier1List As Collection
+    Dim tier1 As Variant
+    Dim cardIndex As Integer
+    Dim startRow As Integer
+    Dim startCol As Integer
+
+    ' Disable screen updating for better performance
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+
+    ' Set references to sheets
+    Set wsData = ThisWorkbook.Sheets("dimReasonCodes")
+    Set wsVisual = ThisWorkbook.Sheets("Visual_Hierarchy")
+
+    ' Clear existing content in Visual_Hierarchy (except instructions)
+    wsVisual.Cells.Clear
+
+    ' Get unique Tier 1 categories in order they appear
+    Set tier1List = GetUniqueTier1Categories(wsData)
+
+    ' Create each card
+    cardIndex = 0
+    For Each tier1 In tier1List
+        ' Calculate card position (4 columns x 3 rows)
+        startRow = (cardIndex \ 4) * 18 + 2 ' 18 rows per card height
+        startCol = (cardIndex Mod 4) * 3 + 1  ' 3 columns per card width
+
+        ' Create the card
+        CreateCard wsVisual, wsData, CStr(tier1), startRow, startCol
+
+        cardIndex = cardIndex + 1
+    Next tier1
+
+    ' Set up page for A3 printing
+    With wsVisual.PageSetup
+        .PaperSize = xlPaperA3
+        .Orientation = xlLandscape
+        .Zoom = False
+        .FitToPagesWide = 1
+        .FitToPagesTall = 1
+        .LeftMargin = Application.InchesToPoints(0.5)
+        .RightMargin = Application.InchesToPoints(0.5)
+        .TopMargin = Application.InchesToPoints(0.5)
+        .BottomMargin = Application.InchesToPoints(0.5)
+    End With
+
+    ' Adjust column widths for visual hierarchy
+    Dim col As Integer
+    For col = 1 To 12
+        wsVisual.Columns(col).ColumnWidth = 18
+    Next col
+
+    ' Re-enable screen updating
+    Application.Calculation = xlCalculationAutomatic
+    Application.ScreenUpdating = True
+
+    MsgBox "Visual Hierarchy refreshed successfully!" & vbCrLf & vbCrLf & _
+           "Cards created: " & tier1List.Count, vbInformation, "Success"
+
+    Exit Sub
+
+ErrorHandler:
+    Application.ScreenUpdating = True
+    Application.Calculation = xlCalculationAutomatic
+    MsgBox "Error refreshing Visual Hierarchy: " & Err.Description, vbCritical, "Error"
+End Sub
+
+' Get unique Tier 1 categories from dimReasonCodes sheet
+Function GetUniqueTier1Categories(wsData As Worksheet) As Collection
+    Dim tier1List As New Collection
+    Dim lastRow As Long
+    Dim i As Long
+    Dim tier1Value As String
+    Dim alreadyExists As Boolean
+
+    lastRow = wsData.Cells(wsData.Rows.Count, 1).End(xlUp).Row
+
+    ' Loop through all rows (skip header)
+    For i = 2 To lastRow
+        tier1Value = Trim(wsData.Cells(i, 1).Value)
+
+        If tier1Value <> "" Then
+            ' Check if already in collection
+            alreadyExists = False
+            On Error Resume Next
+            alreadyExists = (tier1List(tier1Value) <> "")
+            On Error GoTo 0
+
+            If Not alreadyExists Then
+                tier1List.Add tier1Value, tier1Value
+            End If
+        End If
+    Next i
+
+    Set GetUniqueTier1Categories = tier1List
+End Function
+
+' Create a single card for a Tier 1 category
+Sub CreateCard(wsVisual As Worksheet, wsData As Worksheet, tier1Name As String, startRow As Integer, startCol As Integer)
+    Dim subcatCount As Integer
+    Dim rootCauseCount As Integer
+    Dim top3Tier2 As Collection
+    Dim tier2 As Variant
+    Dim tier2Index As Integer
+    Dim cardColor As Long
+    Dim headerRange As Range
+    Dim bodyRange As Range
+    Dim currentRow As Integer
+
+    ' Get counts
+    subcatCount = CountUniqueSubcategories(wsData, tier1Name)
+    rootCauseCount = CountRootCauses(wsData, tier1Name)
+
+    ' Get top 3 Tier 2 subcategories alphabetically
+    Set top3Tier2 = GetTop3Tier2(wsData, tier1Name)
+
+    ' Get color for this Tier 1
+    cardColor = GetColorForTier1(tier1Name)
+
+    ' Create card header (merged cells for Tier 1 name and stats)
+    Set headerRange = wsVisual.Range(wsVisual.Cells(startRow, startCol), wsVisual.Cells(startRow + 2, startCol + 2))
+
+    With headerRange
+        .Merge
+        .Value = UCase(tier1Name) & vbCrLf & subcatCount & " subcategories | " & rootCauseCount & " root causes"
+        .Font.Bold = True
+        .Font.Size = 13
+        .Font.Color = RGB(255, 255, 255)
+        .Interior.Color = cardColor
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .WrapText = True
+    End With
+
+    ' Create card body - list Tier 2 subcategories
+    currentRow = startRow + 3
+    tier2Index = 0
+
+    For Each tier2 In top3Tier2
+        If tier2Index < 3 Then ' Only show top 3
+            Dim tier2Count As Integer
+            tier2Count = CountRootCausesForTier2(wsData, tier1Name, CStr(tier2))
+
+            ' Merge cells for each Tier 2 entry
+            Set bodyRange = wsVisual.Range(wsVisual.Cells(currentRow, startCol), wsVisual.Cells(currentRow + 3, startCol + 2))
+
+            With bodyRange
+                .Merge
+                .Value = "• " & tier2 & vbCrLf & "  (" & tier2Count & " root causes)"
+                .Font.Bold = False
+                .Font.Size = 10
+                .Font.Color = RGB(64, 64, 64)
+                .Interior.Color = RGB(255, 255, 255)
+                .HorizontalAlignment = xlLeft
+                .VerticalAlignment = xlTop
+                .WrapText = True
+                .IndentLevel = 1
+            End With
+
+            currentRow = currentRow + 4
+            tier2Index = tier2Index + 1
+        End If
+    Next tier2
+
+    ' If less than 3 Tier 2s, fill remaining space
+    While tier2Index < 3
+        Set bodyRange = wsVisual.Range(wsVisual.Cells(currentRow, startCol), wsVisual.Cells(currentRow + 3, startCol + 2))
+        With bodyRange
+            .Merge
+            .Interior.Color = RGB(255, 255, 255)
+        End With
+        currentRow = currentRow + 4
+        tier2Index = tier2Index + 1
+    Wend
+
+    ' Add border around entire card
+    Set bodyRange = wsVisual.Range(wsVisual.Cells(startRow, startCol), wsVisual.Cells(startRow + 14, startCol + 2))
+    With bodyRange.Borders
+        .LineStyle = xlContinuous
+        .Weight = xlMedium
+        .Color = RGB(0, 0, 0)
+    End With
+End Sub
+
+' Count unique subcategories for a Tier 1
+Function CountUniqueSubcategories(wsData As Worksheet, tier1Name As String) As Integer
+    Dim lastRow As Long
+    Dim i As Long
+    Dim subcats As New Collection
+    Dim subcat As String
+    Dim alreadyExists As Boolean
+
+    lastRow = wsData.Cells(wsData.Rows.Count, 1).End(xlUp).Row
+
+    For i = 2 To lastRow
+        If Trim(wsData.Cells(i, 1).Value) = tier1Name Then
+            subcat = Trim(wsData.Cells(i, 2).Value)
+
+            If subcat <> "" Then
+                alreadyExists = False
+                On Error Resume Next
+                alreadyExists = (subcats(subcat) <> "")
+                On Error GoTo 0
+
+                If Not alreadyExists Then
+                    subcats.Add subcat, subcat
+                End If
+            End If
+        End If
+    Next i
+
+    CountUniqueSubcategories = subcats.Count
+End Function
+
+' Count total root causes for a Tier 1
+Function CountRootCauses(wsData As Worksheet, tier1Name As String) As Integer
+    Dim lastRow As Long
+    Dim i As Long
+    Dim Count As Integer
+
+    lastRow = wsData.Cells(wsData.Rows.Count, 1).End(xlUp).Row
+    Count = 0
+
+    For i = 2 To lastRow
+        If Trim(wsData.Cells(i, 1).Value) = tier1Name Then
+            If Trim(wsData.Cells(i, 3).Value) <> "" Then
+                Count = Count + 1
+            End If
+        End If
+    Next i
+
+    CountRootCauses = Count
+End Function
+
+' Count root causes for a specific Tier 1 + Tier 2 combination
+Function CountRootCausesForTier2(wsData As Worksheet, tier1Name As String, tier2Name As String) As Integer
+    Dim lastRow As Long
+    Dim i As Long
+    Dim Count As Integer
+
+    lastRow = wsData.Cells(wsData.Rows.Count, 1).End(xlUp).Row
+    Count = 0
+
+    For i = 2 To lastRow
+        If Trim(wsData.Cells(i, 1).Value) = tier1Name And _
+           Trim(wsData.Cells(i, 2).Value) = tier2Name Then
+            If Trim(wsData.Cells(i, 3).Value) <> "" Then
+                Count = Count + 1
+            End If
+        End If
+    Next i
+
+    CountRootCausesForTier2 = Count
+End Function
+
+' Get top 3 Tier 2 subcategories alphabetically for a Tier 1
+Function GetTop3Tier2(wsData As Worksheet, tier1Name As String) As Collection
+    Dim lastRow As Long
+    Dim i As Long
+    Dim subcats As New Collection
+    Dim subcat As String
+    Dim alreadyExists As Boolean
+    Dim sortedList As New Collection
+    Dim tempArray() As String
+    Dim arrayIndex As Integer
+    Dim j As Integer
+
+    lastRow = wsData.Cells(wsData.Rows.Count, 1).End(xlUp).Row
+
+    ' Collect unique subcategories
+    For i = 2 To lastRow
+        If Trim(wsData.Cells(i, 1).Value) = tier1Name Then
+            subcat = Trim(wsData.Cells(i, 2).Value)
+
+            If subcat <> "" Then
+                alreadyExists = False
+                On Error Resume Next
+                alreadyExists = (subcats(subcat) <> "")
+                On Error GoTo 0
+
+                If Not alreadyExists Then
+                    subcats.Add subcat, subcat
+                End If
+            End If
+        End If
+    Next i
+
+    ' Convert to array for sorting
+    If subcats.Count > 0 Then
+        ReDim tempArray(1 To subcats.Count)
+        arrayIndex = 1
+        For Each subcat In subcats
+            tempArray(arrayIndex) = subcat
+            arrayIndex = arrayIndex + 1
+        Next subcat
+
+        ' Simple bubble sort
+        Dim temp As String
+        For i = LBound(tempArray) To UBound(tempArray) - 1
+            For j = i + 1 To UBound(tempArray)
+                If tempArray(i) > tempArray(j) Then
+                    temp = tempArray(i)
+                    tempArray(i) = tempArray(j)
+                    tempArray(j) = temp
+                End If
+            Next j
+        Next i
+
+        ' Add sorted items to result (max 3)
+        For i = LBound(tempArray) To UBound(tempArray)
+            If i <= 3 Then ' Only add first 3
+                sortedList.Add tempArray(i)
+            End If
+        Next i
+    End If
+
+    Set GetTop3Tier2 = sortedList
+End Function
+
+' Get RGB color for a Tier 1 category
+Function GetColorForTier1(tier1Name As String) As Long
+    Select Case tier1Name
+        Case "Machine Issue"
+            GetColorForTier1 = RGB(31, 78, 121) ' Blue
+        Case "Material Issue"
+            GetColorForTier1 = RGB(255, 192, 0) ' Yellow
+        Case "Quality Issue"
+            GetColorForTier1 = RGB(192, 0, 0) ' Red
+        Case "Rework"
+            GetColorForTier1 = RGB(128, 0, 0) ' Maroon
+        Case "Labour Issues"
+            GetColorForTier1 = RGB(0, 128, 0) ' Green
+        Case "Line Running Slow"
+            GetColorForTier1 = RGB(255, 128, 0) ' Orange
+        Case "Startup or Changeover"
+            GetColorForTier1 = RGB(128, 0, 128) ' Purple
+        Case "Planned Down"
+            GetColorForTier1 = RGB(128, 128, 128) ' Gray
+        Case "Schedule Change"
+            GetColorForTier1 = RGB(0, 128, 128) ' Teal
+        Case "Services Issue"
+            GetColorForTier1 = RGB(128, 64, 0) ' Brown
+        Case "Others"
+            GetColorForTier1 = RGB(64, 64, 64) ' Dark Gray
+        Case "Burns"
+            GetColorForTier1 = RGB(139, 0, 0) ' Dark Red
+        Case Else
+            GetColorForTier1 = RGB(100, 100, 100) ' Default Gray
+    End Select
+End Function
