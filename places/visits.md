@@ -30,7 +30,7 @@ Each visit gets scored the morning after:
 
 | Date | Place | Suburb | Type | Overall | Go back? | Status |
 |---|---|---|---|---|---|---|
-| 2026-09-25 | Cuppa Turca | Northcote VIC | Turkish dessert bar | – | – | Rating pending |
+| 2026-09-25 | Cuppa Turca | Northcote VIC | Turkish dessert bar | 7/10 | Yes | Rated |
 
 ---
 
@@ -41,13 +41,13 @@ Each visit gets scored the morning after:
 - **Hours:** Mon–Thu 6pm–10pm · Fri 6pm–11pm · Sat–Sun 3pm–11pm
 - **Links:** [cuppaturca.com](https://www.cuppaturca.com/locations-1) · [AGFG listing](https://www.agfg.com.au/restaurant/cuppa-turca-67702)
 
-**Rating:** pending (check-in scheduled for Sat 26 Sep, 10am AEST)
+**Rating:** 7/10, would go back
 
 | Overall | Food | Vibe | Value | Service | Go back? |
 |---|---|---|---|---|---|
-| – | – | – | – | – | – |
+| 7/10 | – | – | – | – | Yes |
 
 - **Ordered:**
 - **Standout / skip:**
 - **Good for:**
-- **Notes:**
+- **Notes:** Solid but not amazing. The best part was the High St vibe.
