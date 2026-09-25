@@ -47,7 +47,9 @@ Each visit gets scored the morning after:
 |---|---|---|---|---|---|
 | 7/10 | – | – | – | – | Yes |
 
-- **Ordered:**
+- **Ordered:** ice cream baklava, salep (hot thick milk drink), menengiç (Turkish "pistachio coffee" made from wild pistachio berries)
 - **Standout / skip:**
+  - Menengiç split the table. Matt: tastes like old grass, skip. Bubs: like green tea.
+  - Salep was ok, just thick.
 - **Good for:**
 - **Notes:** Solid but not amazing. The best part was the High St vibe.
